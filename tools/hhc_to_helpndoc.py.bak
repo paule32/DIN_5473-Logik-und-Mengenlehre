@@ -100,17 +100,89 @@ const HelpNDocProjectPath = '[::HelpNDocProjectPath::]';
 // [End of User Space]
 // --------------------------------------------------------------------
 
+// --------------------------------------------------------------------
+// there are internal used classes that are stored simplified in a
+// TStringList.
+// --------------------------------------------------------------------
 type
   TThema = class(TObject)
-    Caption: String;
+    TopicTitle: String ;
     TopicLevel: Integer;
-    TopicID: String;
+    TopicID   : String ;
+  public
+    constructor Create(AName: String); overload;
+    constructor Create(AName: String; ALevel: Integer); overload;
+    destructor Destroy; override;
+    
+    procedure Add(AName: String);
+  end;
+
+type
+  TProject = class(TObject)
+  private
+    FLangCode: String;
+    Title : String;
+    Topics: Array of TThema;
+  public
+    constructor Create(AName: String)
+    destructor Destroy; override;
+  published
+  property
+    LanguageCode: String read FLangCode write FLangCode;
   end;
 
 // ---------------------------------------------------------------------------
 // common used constants and variables...
 // ---------------------------------------------------------------------------
 const MAX_TOPICS = 1024;
+
+var PRO_[::HelpNDocProjectPRO::]: TPoject;
+
+{ TTopic }
+
+constructor TTopic.Create(AName: String; ALevel: Integer);
+begin
+  inherited Create;
+  
+  TopicTitle := AName;
+  TopicLevel := ALevel;
+end;
+constructor TTopic.Create(AName: String);
+begin
+  inherited Create;
+  
+  TopicTitle := AName;
+end;
+destructor TTopic.Destroy;
+begin
+  inherited Destroy;
+end;
+
+{ TProject }
+
+constructor TProject.Create(AName: String);
+begin
+  inherited Create;
+  
+  ID := HndProjects.NewProject(AName);
+  try
+    HndProjects.SaveProject;
+    HndProjects.SetProjectLanguageCode('en-us');
+  except
+    on E: Exception do
+    raise Exception('Project file could not be created.');
+  end;
+end;
+destructor TProject.Destroy;
+begin
+  for index := High(Topics) downto Low(Topics) do
+  begin
+    Topics[index].Free;
+    Topics[index] = nil;
+  end;
+  Topics := nil;
+  inherited Destroy;
+end;
 
 // ---------------------------------------------------------------------------
 // calculates the indent level of the numbering TOC String
@@ -160,7 +232,12 @@ end;
 // \\param  projectName - String: The name of the Project.
 // ---------------------------------------------------------------------------
 procedure CreateProject(const projectName: String);
+var projectID: String;
 begin
+  result := '';
+  PRO_[::HelpNDocProjectPRO::] := TProject.Create(projectName);
+  
+  HndTopics.SetProjectModified(True);
 end;
 
 // ---------------------------------------------------------------------------
@@ -333,6 +410,8 @@ end.
         pascal_code = pascal_code.replace('[::HelpNDocPascalFile::]' , args.output)
         pascal_code = pascal_code.replace('[::HelpNDocProjectName::]', args.projectname)
         pascal_code = pascal_code.replace('[::HelpNDocProjectPath::]', args.path)
+        #
+        pascal_code = pascal_code.replace('[::HelpNDocProjectPRO::]', Path(args.projectname).steam)
         
         # -----------------------------------------------------------------------
         # finaly, write the output pascal file ...

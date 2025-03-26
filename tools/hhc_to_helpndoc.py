@@ -105,7 +105,8 @@ const HelpNDocProjectPath = '[::HelpNDocProjectPath::]';
 // TStringList.
 // --------------------------------------------------------------------
 type
-  TThema = class(TObject)
+  TTopic = class(TObject)
+  private
     TopicTitle: String ;
     TopicLevel: Integer;
     TopicID   : String ;
@@ -113,8 +114,6 @@ type
     constructor Create(AName: String); overload;
     constructor Create(AName: String; ALevel: Integer); overload;
     destructor Destroy; override;
-    
-    procedure Add(AName: String);
   end;
 
 type
@@ -122,10 +121,13 @@ type
   private
     FLangCode: String;
     Title : String;
-    Topics: Array of TThema;
+    Topics: Array of TTopic;
   public
-    constructor Create(AName: String)
+    constructor Create(AName: String);
     destructor Destroy; override;
+    
+    procedure AddTopic(AName: String; ALevel: String); overload;
+    procedure AddTopic(AName: String); overload;
   published
   property
     LanguageCode: String read FLangCode write FLangCode;
@@ -137,52 +139,6 @@ type
 const MAX_TOPICS = 1024;
 
 var PRO_[::HelpNDocProjectPRO::]: TPoject;
-
-{ TTopic }
-
-constructor TTopic.Create(AName: String; ALevel: Integer);
-begin
-  inherited Create;
-  
-  TopicTitle := AName;
-  TopicLevel := ALevel;
-end;
-constructor TTopic.Create(AName: String);
-begin
-  inherited Create;
-  
-  TopicTitle := AName;
-end;
-destructor TTopic.Destroy;
-begin
-  inherited Destroy;
-end;
-
-{ TProject }
-
-constructor TProject.Create(AName: String);
-begin
-  inherited Create;
-  
-  ID := HndProjects.NewProject(AName);
-  try
-    HndProjects.SaveProject;
-    HndProjects.SetProjectLanguageCode('en-us');
-  except
-    on E: Exception do
-    raise Exception('Project file could not be created.');
-  end;
-end;
-destructor TProject.Destroy;
-begin
-  for index := High(Topics) downto Low(Topics) do
-  begin
-    Topics[index].Free;
-    Topics[index] = nil;
-  end;
-  Topics := nil;
-  inherited Destroy;
-end;
 
 // ---------------------------------------------------------------------------
 // calculates the indent level of the numbering TOC String
@@ -203,6 +159,90 @@ begin
   // count of dot's is indent level
   // ------------------------------
   Result := count;
+end;
+
+{ TTopic }
+
+constructor TTopic.Create(AName: String; ALevel: Integer);
+begin
+  inherited Create;
+  
+  TopicTitle := AName;
+  TopicLevel := ALevel;
+  TopicID    := HndTopics.CreateTopic;
+end;
+constructor TTopic.Create(AName: String);
+begin
+  inherited Create;
+  
+  TopicTitle := AName;
+  TopicLevel := GetLevel(TopicTitle);
+end;
+destructor TTopic.Destroy;
+begin
+  inherited Destroy;
+end;
+
+{ TProject }
+
+constructor TProject.Create(AName: String);
+begin
+  inherited Create;
+  
+  try
+    Title     := AName;
+    ID        := HndProjects.NewProject(AName);
+    FLangCode := 'en-us';
+    
+    HndProjects.SetProjectModified(True);
+    HndProjects.SetProjectLanguageCode(FLangCode);
+    HndProjects.SaveProject;
+  except
+    on E: Exception do
+    raise Exception('Project file could not be created.');
+  end;
+end;
+destructor TProject.Destroy;
+begin
+  for index := High(Topics) downto Low(Topics) do
+  begin
+    Topics[index].Free;
+    Topics[index] = nil;
+  end;
+  Topics := nil;
+  inherited Destroy;
+end;
+
+// ---------------------------------------------------------------------------
+// \\brief add an new Topic with AName and ALevel
+// ---------------------------------------------------------------------------
+procedure TProject.AddTopic(AName: String; ALevel: Integer);
+var
+  Topic: TTopic;
+begin
+  try
+    Topic  := TTopic.Create(AName, ALevel);
+    Topics := Topics + [Topic];
+  except
+    on E: Exception do
+    raise Exception.Create('Error: can not create topic.');
+  end;
+end;
+
+// ---------------------------------------------------------------------------
+// \\brief add a new Topic with AName. the level is getting by GetLevel
+// ---------------------------------------------------------------------------
+procedure TProject.AddTopic(AName: String);
+var
+  Topic: TTopic;
+begin
+  try
+    Topic  := TTopic.Create(AName, GetLevel(AName));
+    Topics := Topics + [Topic];
+  except
+    on E: Exception do
+    raise Exception.Create('Error: can not create topic.');
+  end;
 end;
 
 // ---------------------------------------------------------------------------
@@ -236,8 +276,6 @@ var projectID: String;
 begin
   result := '';
   PRO_[::HelpNDocProjectPRO::] := TProject.Create(projectName);
-  
-  HndTopics.SetProjectModified(True);
 end;
 
 // ---------------------------------------------------------------------------
