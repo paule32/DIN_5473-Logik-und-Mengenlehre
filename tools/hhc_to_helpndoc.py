@@ -37,10 +37,8 @@ try:
     def parse_hhc_to_topics(hhc_path):
         with open(hhc_path, "r", encoding="utf-8") as file:
             content = file.read()
-        
         soup = BeautifulSoup(content, "html.parser")
-        topics = []
-        
+        hhc_topics = []
         def parse_ul(ul, depth=0):
             for li in ul.find_all("li", recursive=False):
                 obj = li.find("object")
@@ -49,20 +47,17 @@ try:
                     for param in obj.find_all("param"):
                         if param.get("name").lower() == "name":
                             title = param.get("value")
-                    topics.append({
+                    hhc_topics.append({
                         "title": title,
                         "depth": depth
                     })
-                
                 nested = li.find("ul")
                 if nested:
                     parse_ul(nested, depth + 1)
-        
         root_ul = soup.find("ul")
         if root_ul:
             parse_ul(root_ul)
-        
-        return topics
+        return hhc_topics
 
     def generate_helpndoc_pascal(topics):
         lines = []
@@ -105,15 +100,47 @@ const HelpNDocProjectPath = '[::HelpNDocProjectPath::]';
 // TStringList.
 // --------------------------------------------------------------------
 type
+  TEditor = class(TObject)
+  private
+    ID: TObject;
+    Content: String;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    
+    procedure Clear;
+
+    procedure LoadFromFile(AFileName: String);
+    procedure LoadFromString(AString: String);
+    
+    procedure SaveToFile(AFileName: String);
+    
+    function getID: TObject;
+  end;
+
+type
   TTopic = class(TObject)
   private
-    TopicTitle: String ;
-    TopicLevel: Integer;
-    TopicID   : String ;
+    TopicTitle  : String ;
+    TopicLevel  : Integer;
+    TopicID     : String ;
+    TopicEditor : TEditor;
   public
     constructor Create(AName: String); overload;
     constructor Create(AName: String; ALevel: Integer); overload;
     destructor Destroy; override;
+    
+    procedure LoadFromFile(AFileName: String);
+    procedure LoadFromString(AString: String);
+    
+    procedure MoveRight;
+    
+    function getEditor: TEditor;
+    function getID: String;
+  end;
+
+type
+  TTemplate = class(TObject)
   end;
 
 type
@@ -121,13 +148,21 @@ type
   private
     FLangCode: String;
     Title : String;
+    ID : Integer;
     Topics: Array of TTopic;
+    Template: TTemplate;
   public
-    constructor Create(AName: String);
+    constructor Create(AName: String); overload;
+    constructor Create; overload;
     destructor Destroy; override;
     
     procedure AddTopic(AName: String; ALevel: String); overload;
     procedure AddTopic(AName: String); overload;
+    
+    procedure SaveToFile(AFileName: String);
+    
+    procedure SetTemplate(AFileName: String);
+    procedure CleanUp;
   published
   property
     LanguageCode: String read FLangCode write FLangCode;
@@ -136,9 +171,7 @@ type
 // ---------------------------------------------------------------------------
 // common used constants and variables...
 // ---------------------------------------------------------------------------
-const MAX_TOPICS = 1024;
-
-var PRO_[::HelpNDocProjectPRO::]: TPoject;
+var HelpNDoc_[::HelpNDocProjectPRO::]: TProject;
 
 // ---------------------------------------------------------------------------
 // calculates the indent level of the numbering TOC String
@@ -161,30 +194,206 @@ begin
   Result := count;
 end;
 
+{ TEditor }
+
+// ---------------------------------------------------------------------------
+// \\brief This is the constructor for class TEditor. A new Content Editor
+//         object will be created. The default state is empty.
+// ---------------------------------------------------------------------------
+constructor TEditor.Create;
+begin
+  inherited Create;
+  ID := HndEditor.CreateTemporaryEditor;
+  Clear;
+end;
+
+// ---------------------------------------------------------------------------
+// \\brief This is the destructor for class EDitor. Here, we try to remove so
+//         much memory as possible that was allocated before.
+// ---------------------------------------------------------------------------
+destructor TEditor.Destroy;
+begin
+  Clear;
+  HndEditor.DestroyTemporaryEditor(ID);
+  inherited Destroy;
+end;
+
+// ---------------------------------------------------------------------------
+// \\brief This function make the current content editor clean for new input.
+// ---------------------------------------------------------------------------
+procedure TEditor.Clear;
+begin
+  if not Assigned(ID) then
+  raise Exception.Create('Editor not created.');
+  
+  HndEditorHelper.CleanContent(getID);
+  HndEditor.Clear(getID);
+end;
+
+// ---------------------------------------------------------------------------
+// \\brief This function loads the HTML Content for the current content editor
+//         Warning: Existing Code will be overwrite through this function !
+// ---------------------------------------------------------------------------
+procedure TEditor.LoadFromFile(AFileName: String);
+var strList: TStringList;
+begin
+  if not Assigned(ID) then
+  raise Exception.Create('Error: Editor ID unknown.');
+  try
+    try
+      strList := TStringList.Create;
+      strList.LoadFromFile(AFileName);
+      Content := Trim(strList.Text);
+      
+      HndEditor.InsertContentFromHTML(getID, Content);
+    except
+      on E: Exception do
+      raise Exception.Create('Error: editor content can not load from file.');
+    end;
+  finally
+    strList.Clear;
+    strList.Free;
+    strList := nil;
+  end;
+end;
+
+// ---------------------------------------------------------------------------
+// \\brief This function load the HTML Content for the current Content Editor
+//         by the given AString HTML code.
+//         Warning: Existing Code will be overwrite throug this function !
+// ---------------------------------------------------------------------------
+procedure TEditor.LoadFromString(AString: String);
+begin
+  if not Assigned(getID) then
+  raise Exception.Create('Error: editor ID unknown.');
+  try
+    Content := Trim(AFileName);
+    HndEditor.InsertContentFromHTML(getID, AString);
+  except
+    on E: Exception do
+    raise Exception.Create('Error: editor content could not set.');
+  end;
+end;
+
+procedure TEditor.SaveToFile(AFileName: String);
+begin
+  //GetContentAsHtml()
+end;
+
+function TEditor.getID: TObject;
+begin
+  result := ID;
+end;
+
 { TTopic }
 
+// ---------------------------------------------------------------------------
+// \\brief This is the constructor for class TTopic. It creates a new fresh
+//         Topic with given AName and a indent with ALevel.
+// ---------------------------------------------------------------------------
 constructor TTopic.Create(AName: String; ALevel: Integer);
 begin
   inherited Create;
   
-  TopicTitle := AName;
-  TopicLevel := ALevel;
-  TopicID    := HndTopics.CreateTopic;
+  TopicTitle  := AName;
+  TopicLevel  := ALevel;
+  TopicID     := HndTopics.CreateTopic;
+  
+  HndTopics.SetTopicCaption(TopicID, TopicTitle);
+  MoveRight;
+  
+  TopicEditor := TEditor.Create;
 end;
+
+// ---------------------------------------------------------------------------
+// \\brief This is a overloaded constructor for class TTopic. It creates a new
+//         fresh Topic if the given AName, and a indent which is automatically
+//         filled in.
+// ---------------------------------------------------------------------------
 constructor TTopic.Create(AName: String);
 begin
   inherited Create;
   
-  TopicTitle := AName;
-  TopicLevel := GetLevel(TopicTitle);
+  TopicTitle  := AName;
+  TopicLevel  := GetLevel(TopicTitle);
+  TopicID     := HndTopics.CreateTopic;
+  
+  HndTopics.SetTopicCaption(TopicID, TopicTitle);
+  MoveRight;
+  
+  TopicEditor := TEditor.Create;
 end;
+
+// ---------------------------------------------------------------------------
+// \\brief This is the destructor for class TTopic. Here we try to remove so
+//         much memory as possible is allocated before.
+// ---------------------------------------------------------------------------
 destructor TTopic.Destroy;
 begin
+  TopicEditor.Free;
+  TopicEditor := nil;
+  
   inherited Destroy;
+end;
+
+// ---------------------------------------------------------------------------
+// \\brief This is a place holder function to reduce code redundance.
+// ---------------------------------------------------------------------------
+procedure TTopic.MoveRight;
+var idx: Integer;
+begin
+  if TopicLevel > 1 then
+  begin
+    for idx := 1 to TopicLevel do
+    HndTopics.MoveTopicRight(TopicID);
+  end;
+end;
+
+// ---------------------------------------------------------------------------
+// \\brief This function loads the Topic Content from a File and fill it into
+//         the Content Editor.
+// ---------------------------------------------------------------------------
+procedure TTopic.LoadFromFile(AFileName: String);
+var strList: TStringList;
+begin
+  try
+    try
+      strList := TStringList.Create;
+      strList.LoadFromFile(AFileName);
+      TopicContent := Trim(strList.Text);
+      
+      HndEditor.InsertContentFromHTML(getEditor.getID, TopicContent);
+    except
+      on E: Exception do
+      raise Exception.Create('Error: editor content can not load from file.');
+    end;
+  finally
+    strList.Clear;
+    strList.Free;
+    strList := nil;
+  end;
+end;
+
+procedure TTopic.LoadFromString(AString: String);
+begin
+end;
+
+function TTopic.getEditor: TEditor;
+begin
+  result := TopicEditor;
+end;
+
+function TTopic.getID: String;
+begin
+  result := TopicID;
 end;
 
 { TProject }
 
+// ---------------------------------------------------------------------------
+// \\brief This is the constructor for class TProject. It creates a new fresh
+//         Project with the given AName.
+// ---------------------------------------------------------------------------
 constructor TProject.Create(AName: String);
 begin
   inherited Create;
@@ -195,14 +404,51 @@ begin
     FLangCode := 'en-us';
     
     HndProjects.SetProjectModified(True);
-    HndProjects.SetProjectLanguageCode(FLangCode);
+    HndProjects.SetProjectLanguageCode(850);
     HndProjects.SaveProject;
   except
     on E: Exception do
-    raise Exception('Project file could not be created.');
+    raise Exception.Create('Project file could not be created.');
   end;
 end;
+
+// ---------------------------------------------------------------------------
+// \\brief This is the overloaded constructor to create a new Project with the
+//         default settings.
+// ---------------------------------------------------------------------------
+constructor TProject.Create;
+begin
+  inherited Create;
+  
+  try
+    Title     := 'default.hnd';
+    ID        := HndProjects.NewProject(Title);
+    FLangCode := 'en-us';
+    
+    HndProjects.SetProjectModified(True);
+    HndProjects.SetProjectLanguageCode(850);
+    HndProjects.SaveProject;
+  except
+    on E: Exception do
+    raise Exception.Create();
+  end;
+end;
+
+// ---------------------------------------------------------------------------
+// \\brief This is the destructor of class TProject. Here we try to remove so
+//         much memory as possible is allocated before.
+// ---------------------------------------------------------------------------
 destructor TProject.Destroy;
+var index: Integer;
+begin
+  CleanUp;
+  
+  HndProjects.CloseProject;
+  inherited Destroy;
+end;
+
+procedure TProject.CleanUp;
+var index: Integer;
 begin
   for index := High(Topics) downto Low(Topics) do
   begin
@@ -210,7 +456,19 @@ begin
     Topics[index] = nil;
   end;
   Topics := nil;
-  inherited Destroy;
+end;
+
+// ---------------------------------------------------------------------------
+// \\brief This function save the HTML Content and Project Data to storage.
+// ---------------------------------------------------------------------------
+procedure TProject.SaveToFile(AFileName: String);
+begin
+  if Length(Trim(ID)) < 1 then
+  raise Exception.Create('Error: Project ID is nil.')
+  
+  if Length(Trim(AFileName)) > 0 then
+  HndProjects.CopyProject(AFileName, false) else
+  HndProjects.SaveProject;
 end;
 
 // ---------------------------------------------------------------------------
@@ -222,6 +480,7 @@ var
 begin
   try
     Topic  := TTopic.Create(AName, ALevel);
+    HndEditor.SetAsTopicContent(Topic.getEditor.getID, Topic.getID);
     Topics := Topics + [Topic];
   except
     on E: Exception do
@@ -238,6 +497,7 @@ var
 begin
   try
     Topic  := TTopic.Create(AName, GetLevel(AName));
+    HndEditor.SetAsTopicContent(Topic.getEditor.getID, Topic.getID);
     Topics := Topics + [Topic];
   except
     on E: Exception do
@@ -245,8 +505,12 @@ begin
   end;
 end;
 
+procedure TProject.SetTemplate(AFileName: String);
+begin
+end;
+
 // ---------------------------------------------------------------------------
-// \brief This function extracts the Topic Caption/Titel of the given String.
+// \\brief This function extracts the Topic Caption/Titel of the given String.
 // ---------------------------------------------------------------------------
 function ExtractTitel(const TOCString: String): String;
 var
@@ -275,75 +539,32 @@ procedure CreateProject(const projectName: String);
 var projectID: String;
 begin
   result := '';
-  PRO_[::HelpNDocProjectPRO::] := TProject.Create(projectName);
+  HelpNDoc_[::HelpNDocProjectPRO::] := TProject.Create(projectName);
 end;
 
 // ---------------------------------------------------------------------------
-// \brief This function create the Table of Contents (TOC).
+// \\brief This function create the Table of Contents (TOC).
 // ---------------------------------------------------------------------------
 procedure CreateTableOfContents;
 var i, p, g: Integer;
-var ThemenEditor: TObject;
-var ThemenPage  : TStringList;
-var ThemenListe : TStringList;
-var Thema: Array [0..MAX_TOPICS] of TThema;
 begin
-
-  ThemenListe := TStringList.Create;
-  ThemenPage  := TStringList.Create;
-  
+  HelpNDoc_[::HelpNDocProjectPRO::] := TProject.Create('[::HelpNDocProjectPRO::]')
   try
     print('1. pre-processing data...');
-    ThemenPage.LoadFromFile(HelpNDocTemplateHTM);
-    
-    ThemenEditor := HndEditor.CreateTemporaryEditor;
-    HndEditorHelper.CleanContent   (ThemenEditor);
-    HndEditor.InsertContentFromHTML(ThemenEditor, ThemenPage.Text);""")
+    HelpNDoc_[::HelpNDocProjectPRO::].SetTemplate(HelpNDocTemplateHTM);
+""")
         # -----------------------------------------------------------------------
-        for idx, t in enumerate(topics):
+        for idx, t in enumerate(hhc_topics):
             title = t["title"].replace("'", "''")
             depth = t["depth"]
-            
-            lines.append(f"    // Thema {idx + 1}: {title}")
-            lines.append(f"    Thema[{idx}] := TThema.Create;")
-            lines.append(f"    Thema[{idx}].Caption := '{title}';")
-            lines.append(f"    Thema[{idx}].TopicID := HndTopics.CreateTopic;")
-            lines.append(f"    Thema[{idx}].TopicLevel := GetLevel(Thema[{idx}].Caption);")
-            lines.append(f"    ThemenListe.AddObject('Topic{idx}', Thema[{idx}]);")
-            lines.append(f"    HndEditor.SetAsTopicContent(aEditor, Thema[{idx}].TopicID);")
+            lines.append(f"    HelpNDoc_[::HelpNDocProjectPRO::].AddTopic('{title}');")
         # -----------------------------------------------------------------------
         lines.append("""
-    print('2.  generate tree...');
-    for p := Low(Thema) to High(Thema) do
-    begin
-      if Assigned(Thema[p]) then
-      begin
-        HndTopics.SetTopicCaption(Thema[p].TopicID, Thema[p].Caption);
-        if Thema[p].TopicLevel > 1 then
-        begin
-          for g := 1 to Thema[p].TopicLevel do
-          HndTopics.MoveTopicRight(Thema[p].TopicID);
-        end;
-      end;
-    end;
   finally
     print('3.  clean up memory...');
-    for i := High(Thema) downto Low(Thema) do
-    if Assigned(Thema[i]) then
-    Thema[i].Free;
-    Thema := nil;
     
-    ThemenListe.Clear;
-    ThemenListe.Free;
-    ThemenListe := nil;
-    
-    ThemenPage.Clear;
-    ThemenPage.Free;
-    ThemenPage := nil;
-    
-    HndEditorHelper.CleanContent(ThemenEditor);
-    HndEditor.Clear(ThemenEditor);
-    HndEditor.DestroyTemporaryEditor(ThemenEditor);
+    HelpNDoc_[::HelpNDocProjectPRO::].Free;
+    HelpNDoc_[::HelpNDocProjectPRO::] := nil;
     
     print('4.  done.');
   end;
@@ -436,10 +657,10 @@ end.
         # -----------------------------------------------------------------------
         # this is a sanity chqck, if the file can be read before it is handled.
         # -----------------------------------------------------------------------
-        with open(args.input, "r", encoding="utf-8") as inpFile:
-            content = inpFile.read()
-        
-        pascal_code = generate_helpndoc_pascal(parse_hhc_to_topics(args.input))
+        #with open(args.input, "r", encoding="utf-8") as inpFile:
+        #    content = inpFile.read()
+        hhc_topics = parse_hhc_to_topics(args.input)
+        pascal_code = generate_helpndoc_pascal(hhc_topics)
         
         # -----------------------------------------------------------------------
         # replace the place holders in "pascal_code" with given option args.
@@ -449,7 +670,8 @@ end.
         pascal_code = pascal_code.replace('[::HelpNDocProjectName::]', args.projectname)
         pascal_code = pascal_code.replace('[::HelpNDocProjectPath::]', args.path)
         #
-        pascal_code = pascal_code.replace('[::HelpNDocProjectPRO::]', Path(args.projectname).steam)
+        path_code, _ = os.path.splitext(args.projectname)
+        pascal_code  = pascal_code.replace('[::HelpNDocProjectPRO::]', path_code)
         
         # -----------------------------------------------------------------------
         # finaly, write the output pascal file ...
@@ -458,7 +680,7 @@ end.
             outFile.write("// automated created - all data will be lost on next run !\n")
             outFile.write(pascal_code)
         
-        print(f"HelpNDoc.com Pascal-Script: created successfully:\n{HelpNDocPaslFile}")
+        print(f"HelpNDoc.com Pascal-Script: created successfully")
 
 # --------------------------------------------------------------------
 # Exception handling section for this Python Script:
