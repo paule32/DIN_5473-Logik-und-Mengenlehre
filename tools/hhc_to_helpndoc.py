@@ -115,7 +115,10 @@ type
     
     procedure SaveToFile(AFileName: String);
     
-    function getID: TObject;
+    function  getContent: String;
+    function  getID: TObject;
+    
+    procedure setContent(AString: String);
   end;
 
 type
@@ -148,7 +151,7 @@ type
   private
     FLangCode: String;
     Title : String;
-    ID : Integer;
+    ID : String;
     Topics: Array of TTopic;
     Template: TTemplate;
   public
@@ -156,7 +159,7 @@ type
     constructor Create; overload;
     destructor Destroy; override;
     
-    procedure AddTopic(AName: String; ALevel: String); overload;
+    procedure AddTopic(AName: String; ALevel: Integer); overload;
     procedure AddTopic(AName: String); overload;
     
     procedure SaveToFile(AFileName: String);
@@ -267,7 +270,7 @@ begin
   if not Assigned(getID) then
   raise Exception.Create('Error: editor ID unknown.');
   try
-    Content := Trim(AFileName);
+    Content := Trim(AString);
     HndEditor.InsertContentFromHTML(getID, AString);
   except
     on E: Exception do
@@ -280,9 +283,13 @@ begin
   //GetContentAsHtml()
 end;
 
-function TEditor.getID: TObject;
+function  TEditor.getContent: String ; begin result := Content; end;
+function  TEditor.getID     : TObject; begin result := ID;      end;
+
+procedure TEditor.setContent(AString: String);
 begin
-  result := ID;
+  Content := AString;
+  HndEditor.InsertContentFromHTML(getID, getContent);
 end;
 
 { TTopic }
@@ -342,9 +349,9 @@ end;
 procedure TTopic.MoveRight;
 var idx: Integer;
 begin
-  if TopicLevel > 1 then
+  if TopicLevel >= 0 then
   begin
-    for idx := 1 to TopicLevel do
+    for idx := 0 to TopicLevel-1 do
     HndTopics.MoveTopicRight(TopicID);
   end;
 end;
@@ -360,9 +367,7 @@ begin
     try
       strList := TStringList.Create;
       strList.LoadFromFile(AFileName);
-      TopicContent := Trim(strList.Text);
-      
-      HndEditor.InsertContentFromHTML(getEditor.getID, TopicContent);
+      getEditor.setContent(Trim(strList.Text));
     except
       on E: Exception do
       raise Exception.Create('Error: editor content can not load from file.');
@@ -378,15 +383,8 @@ procedure TTopic.LoadFromString(AString: String);
 begin
 end;
 
-function TTopic.getEditor: TEditor;
-begin
-  result := TopicEditor;
-end;
-
-function TTopic.getID: String;
-begin
-  result := TopicID;
-end;
+function TTopic.getEditor: TEditor; begin result := TopicEditor; end;
+function TTopic.getID    : String ; begin result := TopicID;     end;
 
 { TProject }
 
@@ -400,12 +398,12 @@ begin
   
   try
     Title     := AName;
-    ID        := HndProjects.NewProject(AName);
+    //ID        := HndProjects.NewProject(AName);
     FLangCode := 'en-us';
     
     HndProjects.SetProjectModified(True);
-    HndProjects.SetProjectLanguageCode(850);
-    HndProjects.SaveProject;
+    HndProjects.SetProjectLanguage(850);
+    //HndProjects.SaveProject;
   except
     on E: Exception do
     raise Exception.Create('Project file could not be created.');
@@ -422,15 +420,15 @@ begin
   
   try
     Title     := 'default.hnd';
-    ID        := HndProjects.NewProject(Title);
+    //ID        := HndProjects.NewProject(Title);
     FLangCode := 'en-us';
     
     HndProjects.SetProjectModified(True);
-    HndProjects.SetProjectLanguageCode(850);
-    HndProjects.SaveProject;
+    HndProjects.SetProjectLanguage(850);
+    //HndProjects.SaveProject;
   except
     on E: Exception do
-    raise Exception.Create();
+    raise Exception.Create('Error: project could not be loaded.');
   end;
 end;
 
@@ -443,7 +441,7 @@ var index: Integer;
 begin
   CleanUp;
   
-  HndProjects.CloseProject;
+  //HndProjects.CloseProject;
   inherited Destroy;
 end;
 
@@ -453,7 +451,7 @@ begin
   for index := High(Topics) downto Low(Topics) do
   begin
     Topics[index].Free;
-    Topics[index] = nil;
+    Topics[index] := nil;
   end;
   Topics := nil;
 end;
@@ -464,7 +462,7 @@ end;
 procedure TProject.SaveToFile(AFileName: String);
 begin
   if Length(Trim(ID)) < 1 then
-  raise Exception.Create('Error: Project ID is nil.')
+  raise Exception.Create('Error: Project ID is nil.');
   
   if Length(Trim(AFileName)) > 0 then
   HndProjects.CopyProject(AFileName, false) else
@@ -538,7 +536,6 @@ end;
 procedure CreateProject(const projectName: String);
 var projectID: String;
 begin
-  result := '';
   HelpNDoc_[::HelpNDocProjectPRO::] := TProject.Create(projectName);
 end;
 
@@ -548,7 +545,7 @@ end;
 procedure CreateTableOfContents;
 var i, p, g: Integer;
 begin
-  HelpNDoc_[::HelpNDocProjectPRO::] := TProject.Create('[::HelpNDocProjectPRO::]')
+  HelpNDoc_[::HelpNDocProjectPRO::] := TProject.Create('[::HelpNDocProjectPRO::]');
   try
     print('1. pre-processing data...');
     HelpNDoc_[::HelpNDocProjectPRO::].SetTemplate(HelpNDocTemplateHTM);

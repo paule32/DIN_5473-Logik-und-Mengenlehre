@@ -40,7 +40,7 @@ const HelpNDocProjectPath = 'F:\Bücher\projects\DIN_5473\tools';
 type
   TEditor = class(TObject)
   private
-    ID: String;
+    ID: TObject;
     Content: String;
   public
     constructor Create;
@@ -52,6 +52,11 @@ type
     procedure LoadFromString(AString: String);
     
     procedure SaveToFile(AFileName: String);
+    
+    function  getContent: String;
+    function  getID: TObject;
+    
+    procedure setContent(AString: String);
   end;
 
 type
@@ -70,6 +75,9 @@ type
     procedure LoadFromString(AString: String);
     
     procedure MoveRight;
+    
+    function getEditor: TEditor;
+    function getID: String;
   end;
 
 type
@@ -81,7 +89,7 @@ type
   private
     FLangCode: String;
     Title : String;
-    ID : Integer;
+    ID : String;
     Topics: Array of TTopic;
     Template: TTemplate;
   public
@@ -89,7 +97,7 @@ type
     constructor Create; overload;
     destructor Destroy; override;
     
-    procedure AddTopic(AName: String; ALevel: String); overload;
+    procedure AddTopic(AName: String; ALevel: Integer); overload;
     procedure AddTopic(AName: String); overload;
     
     procedure SaveToFile(AFileName: String);
@@ -104,7 +112,7 @@ type
 // ---------------------------------------------------------------------------
 // common used constants and variables...
 // ---------------------------------------------------------------------------
-var PRO_default: TPoject;
+var HelpNDoc_default: TProject;
 
 // ---------------------------------------------------------------------------
 // calculates the indent level of the numbering TOC String
@@ -159,8 +167,8 @@ begin
   if not Assigned(ID) then
   raise Exception.Create('Editor not created.');
   
-  HndEditorHelper.CleanContent(ID);
-  HndEditor.Clear(ID);
+  HndEditorHelper.CleanContent(getID);
+  HndEditor.Clear(getID);
 end;
 
 // ---------------------------------------------------------------------------
@@ -170,7 +178,7 @@ end;
 procedure TEditor.LoadFromFile(AFileName: String);
 var strList: TStringList;
 begin
-  if Length(Trim(ID)) < 1 then
+  if not Assigned(ID) then
   raise Exception.Create('Error: Editor ID unknown.');
   try
     try
@@ -178,7 +186,7 @@ begin
       strList.LoadFromFile(AFileName);
       Content := Trim(strList.Text);
       
-      HndEditor.InsertContentFromHTML(ID, Content);
+      HndEditor.InsertContentFromHTML(getID, Content);
     except
       on E: Exception do
       raise Exception.Create('Error: editor content can not load from file.');
@@ -197,11 +205,11 @@ end;
 // ---------------------------------------------------------------------------
 procedure TEditor.LoadFromString(AString: String);
 begin
-  if Length(Trim(ID)) < 1 then
+  if not Assigned(getID) then
   raise Exception.Create('Error: editor ID unknown.');
   try
-    Content := Trim/AFileName);
-    HndEditor.InsertContentFromHTML(ID, AString);
+    Content := Trim(AString);
+    HndEditor.InsertContentFromHTML(getID, AString);
   except
     on E: Exception do
     raise Exception.Create('Error: editor content could not set.');
@@ -211,6 +219,15 @@ end;
 procedure TEditor.SaveToFile(AFileName: String);
 begin
   //GetContentAsHtml()
+end;
+
+function  TEditor.getContent: String ; begin result := Content; end;
+function  TEditor.getID     : TObject; begin result := ID;      end;
+
+procedure TEditor.setContent(AString: String);
+begin
+  Content := AString;
+  HndEditor.InsertContentFromHTML(getID, getContent);
 end;
 
 { TTopic }
@@ -288,9 +305,7 @@ begin
     try
       strList := TStringList.Create;
       strList.LoadFromFile(AFileName);
-      Content := Trim(strList.Text);
-      
-      HndEditor.InsertContentFromHTML(ID, Content);
+      getEditor.setContent(Trim(strList.Text));
     except
       on E: Exception do
       raise Exception.Create('Error: editor content can not load from file.');
@@ -306,6 +321,9 @@ procedure TTopic.LoadFromString(AString: String);
 begin
 end;
 
+function TTopic.getEditor: TEditor; begin result := TopicEditor; end;
+function TTopic.getID    : String ; begin result := TopicID;     end;
+
 { TProject }
 
 // ---------------------------------------------------------------------------
@@ -318,12 +336,12 @@ begin
   
   try
     Title     := AName;
-    ID        := HndProjects.NewProject(AName);
+    //ID        := HndProjects.NewProject(AName);
     FLangCode := 'en-us';
     
     HndProjects.SetProjectModified(True);
-    HndProjects.SetProjectLanguageCode(FLangCode);
-    HndProjects.SaveProject;
+    HndProjects.SetProjectLanguage(850);
+    //HndProjects.SaveProject;
   except
     on E: Exception do
     raise Exception.Create('Project file could not be created.');
@@ -340,15 +358,15 @@ begin
   
   try
     Title     := 'default.hnd';
-    ID        := HndProjects.NewProject(Title);
+    //ID        := HndProjects.NewProject(Title);
     FLangCode := 'en-us';
     
     HndProjects.SetProjectModified(True);
-    HndProjects.SetProjectLanguageCode(FLangCode);
-    HndProjects.SaveProject;
+    HndProjects.SetProjectLanguage(850);
+    //HndProjects.SaveProject;
   except
     on E: Exception do
-    raise Exception.Create();
+    raise Exception.Create('Error: project could not be loaded.');
   end;
 end;
 
@@ -371,7 +389,7 @@ begin
   for index := High(Topics) downto Low(Topics) do
   begin
     Topics[index].Free;
-    Topics[index] = nil;
+    Topics[index] := nil;
   end;
   Topics := nil;
 end;
@@ -382,7 +400,7 @@ end;
 procedure TProject.SaveToFile(AFileName: String);
 begin
   if Length(Trim(ID)) < 1 then
-  raise Exception.Create('Error: Project ID is nil.')
+  raise Exception.Create('Error: Project ID is nil.');
   
   if Length(Trim(AFileName)) > 0 then
   HndProjects.CopyProject(AFileName, false) else
@@ -398,7 +416,7 @@ var
 begin
   try
     Topic  := TTopic.Create(AName, ALevel);
-    HndEditor.SetAsTopicContent(Topic.TopicEditor, Topic.TopicID);
+    HndEditor.SetAsTopicContent(Topic.getEditor.getID, Topic.getID);
     Topics := Topics + [Topic];
   except
     on E: Exception do
@@ -415,7 +433,7 @@ var
 begin
   try
     Topic  := TTopic.Create(AName, GetLevel(AName));
-    HndEditor.SetAsTopicContent(Topic.TopicEditor, Topic.TopicID);
+    HndEditor.SetAsTopicContent(Topic.getEditor.getID, Topic.getID);
     Topics := Topics + [Topic];
   except
     on E: Exception do
@@ -456,8 +474,7 @@ end;
 procedure CreateProject(const projectName: String);
 var projectID: String;
 begin
-  result := '';
-  PRO_default := TProject.Create(projectName);
+  HelpNDoc_default := TProject.Create(projectName);
 end;
 
 // ---------------------------------------------------------------------------
@@ -465,294 +482,294 @@ end;
 // ---------------------------------------------------------------------------
 procedure CreateTableOfContents;
 var i, p, g: Integer;
-var project: TProject;
 begin
-  PRO_default := TProject.Create('default')
+  HelpNDoc_default := TProject.Create('default');
   try
     print('1. pre-processing data...');
-    project := TProject.Create('default');
-    project.SetTemplate(HelpNDocTemplateHTM);
+    HelpNDoc_default.SetTemplate(HelpNDocTemplateHTM);
 
-    project.AddTopic('Lizenz - Bitte lesen !!!');
-    project.AddTopic('Überblich');
-    project.AddTopic('Inhalt');
-    project.AddTopic('Liste der Tabellen');
-    project.AddTopic('Über dieses Handbuch');
-    project.AddTopic('Bezeichnungen');
-    project.AddTopic('Syntax Diagramme');
-    project.AddTopic('Über die Sprache Pascal');
-    project.AddTopic('1.  Pascal Zeichen und Symbole');
-    project.AddTopic('1.1  Symbole');
-    project.AddTopic('1.2  Kommentare');
-    project.AddTopic('1.3  Reservierte Schlüsselwörter');
-    project.AddTopic('1.3.1.  Turbo Pascal');
-    project.AddTopic('1.3.2.  Object Pascal');
-    project.AddTopic('1.3.3.  Modifikationen');
-    project.AddTopic('1.4.  Kennzeichnungen');
-    project.AddTopic('1.5.  Hinweise und Direktiven');
-    project.AddTopic('1.6.  Zahlen');
-    project.AddTopic('1.7.  Bezeichner');
-    project.AddTopic('1.8.  Zeichenketten');
-    project.AddTopic('2.  Konstanten');
-    project.AddTopic('2.1.  Gewöhnliche Konstanten');
-    project.AddTopic('2.2.  Typisierte Konstanten');
-    project.AddTopic('2.3.  Resourcen Zeichenketten');
-    project.AddTopic('3.  Typen');
-    project.AddTopic('3.1.  Basistypen');
-    project.AddTopic('3.1.1.  Ordinale Typen');
-    project.AddTopic('3.1.2.  Ganze Zahlen (Integer)');
-    project.AddTopic('3.1.3.  Boolesche Typen');
-    project.AddTopic('3.1.4.  Aufzählungen');
-    project.AddTopic('3.1.5.  Untermengen');
-    project.AddTopic('3.1.6.  Zeichen');
-    project.AddTopic('3.2.  Zeichen-Typen');
-    project.AddTopic('3.2.1.  Char oder AnsiChar');
-    project.AddTopic('3.2.2.  WideChar');
-    project.AddTopic('3.2.3.  Sonstige');
-    project.AddTopic('3.2.4.  Einzel-Byte Zeichenketten');
-    project.AddTopic('3.2.4.1.  ShortString');
-    project.AddTopic('3.2.4.2.  AnsiString');
-    project.AddTopic('3.2.4.3.  Zeichen-Code Umwandlung');
-    project.AddTopic('3.2.4.4.  RawByteString');
-    project.AddTopic('3.2.4.5.  UTF8String');
-    project.AddTopic('3.2.5.  Multi-Byte Zeichenketten');
-    project.AddTopic('3.2.5.1.  UnicodeString');
-    project.AddTopic('3.2.5.2.  WideString');
-    project.AddTopic('3.2.6.  Konstante Zeichenketten');
-    project.AddTopic('3.2.7.  Nullterminierente Zeichenketten (PChar)');
-    project.AddTopic('3.2.8.  Zeichenketten-Größen');
-    project.AddTopic('3.3.  Strukturierte Typen');
-    project.AddTopic('3.3.1.  Gepackte Struktur-Typen');
-    project.AddTopic('3.3.2.  Array''s');
-    project.AddTopic('3.3.2.1.  Statische Array''s');
-    project.AddTopic('3.3.2.2.  Dynamische Array''s');
-    project.AddTopic('3.3.2.3:  Typen-Kompatibilität dynamischer Array''s');
-    project.AddTopic('3.3.2.4.  Constuctor dynamischer Array''s');
-    project.AddTopic('3.3.2.5.  Feldkonstanten-Ausdrücke dynamiscer Array''s');
-    project.AddTopic('3.3.2.6.  Packen und Entpacken eines Array''s');
-    project.AddTopic('3.3.3.  Record''s');
-    project.AddTopic('3.3.3.1.  Layout und Größe');
-    project.AddTopic('3.3.3.2.  Bemerkungen und Beispiele');
-    project.AddTopic('3.3.4.  Mengen-Typen');
-    project.AddTopic('3.3.5.  Datei-Typen');
-    project.AddTopic('3.4.  Zeiger');
-    project.AddTopic('3.5.  Forward-Deklarationen');
-    project.AddTopic('3.6.  Prozedur-Typen');
-    project.AddTopic('3.7.  Variant''s');
-    project.AddTopic('3.7.1.  Definition');
-    project.AddTopic('3.7.2.  Variant''s in Zuweisungen und Ausdrücken');
-    project.AddTopic('3.7.3.  Variant''s im Interface-Teil');
-    project.AddTopic('3.8.  Alias-Typen');
-    project.AddTopic('3.9.  Verwaltete Typen');
-    project.AddTopic('4.  Variablen');
-    project.AddTopic('4.1.  Definition');
-    project.AddTopic('4.2.  Erklärung');
-    project.AddTopic('4.3.  Geltungssbereich');
-    project.AddTopic('4.4.  Initialisierte Variablen');
-    project.AddTopic('4.5.  Initialisierte Variablen mit Standard-Wert');
-    project.AddTopic('4.6.  Thread-Variablen');
-    project.AddTopic('4.7.  Eigenschaften');
-    project.AddTopic('5.  Objekte');
-    project.AddTopic('5.1.  Deklaration');
-    project.AddTopic('5.2.  Abtrakte und Sealed Objekte');
-    project.AddTopic('5.3.  Felder');
-    project.AddTopic('5.4.  Klassen oder statische Felder');
-    project.AddTopic('5.5.  Constructor und Destructor');
-    project.AddTopic('5.6.  Methoden');
-    project.AddTopic('5.6.1.  Erklärung');
-    project.AddTopic('5.6.2.  Methoden-Aufruf');
-    project.AddTopic('5.6.2.1.  Statische Methoden');
-    project.AddTopic('5.6.2.2.  Virtuelle Methoden');
-    project.AddTopic('5.6.2.3.  Abstrakte Methoden');
-    project.AddTopic('5.6.2.4.  Klassen-Methoden oder statische Methoden');
-    project.AddTopic('5.7.  Sichtbarkeit');
-    project.AddTopic('6.  Klassen');
-    project.AddTopic('6.1.  Klassen-Definitionen');
-    project.AddTopic('6.2.  Abstrakte und Sealed Klassen');
-    project.AddTopic('6.3.  Normale und statische Felder');
-    project.AddTopic('6.3.1.  Normalisierte Felder / Variablen');
-    project.AddTopic('6.3.2.  Klassen-Felder / Variablen');
-    project.AddTopic('6.4.  Klassen - CTOR (constructor)');
-    project.AddTopic('6.5.  Klassen - DTOR (destructor)');
-    project.AddTopic('6.6.  Methoden');
-    project.AddTopic('6.6.1.  Erklärung');
-    project.AddTopic('6.6.2.  Aufrufen');
-    project.AddTopic('6.6.3.  Virtuelle Methoden');
-    project.AddTopic('6.6.4.  Klassen - Methoden');
-    project.AddTopic('6.6.5.  Klassen CTOR und DTOR');
-    project.AddTopic('6.6.6.  Statische Klassen - Methoden');
-    project.AddTopic('6.6.7.  Nachrichten - Methoden');
-    project.AddTopic('6.6.8.  Vererbung');
-    project.AddTopic('6.7.  Eigenschaften');
-    project.AddTopic('6.7.1.  Definition');
-    project.AddTopic('6.7.2.  Indezierte Eigenschaften');
-    project.AddTopic('6.7.3.  Array basierte Eigenschaften');
-    project.AddTopic('6.7.4.  Standard - Eigenschaften (public)');
-    project.AddTopic('6.7.5.  Veröffentlichte - Eigenschaften (published)');
-    project.AddTopic('6.7.6.  Speicherinformationen');
-    project.AddTopic('6.7.7.  Eigenschaften überschreiben und neu deklarieren');
-    project.AddTopic('6.8.  Klassen - Eigenschaften');
-    project.AddTopic('6.9.  Verschachtelte Typen, Konstanten, und Variablen');
-    project.AddTopic('7.  Schnittstellen (Interface''s)');
-    project.AddTopic('7.1.  Definition');
-    project.AddTopic('7.2.  Identifikation');
-    project.AddTopic('7.3.  Implementierung');
-    project.AddTopic('7.4.  Vererbung');
-    project.AddTopic('7.5.  Delegation');
-    project.AddTopic('7.6.  COM');
-    project.AddTopic('7.7.  CORBA und andere Schnittstellen');
-    project.AddTopic('7.8.  Referenzzählung');
-    project.AddTopic('8.  Generics');
-    project.AddTopic('8.1.  Einführung');
-    project.AddTopic('8.2.  Get''ter Typ - Definition');
-    project.AddTopic('8.3.  Typen - Spezialisierung');
-    project.AddTopic('8.4.  Einschränkungen');
-    project.AddTopic('8.5.  Kompatibilität zu Delphi');
-    project.AddTopic('8.5.1.  Syntax - Elemente');
-    project.AddTopic('8.5.2.  Einschränkungen für Record''s');
-    project.AddTopic('8.5.3.  Typen - Überladung(en)');
-    project.AddTopic('8.5.4.  Überlegungen für Namensbereiche');
-    project.AddTopic('8.6.  Typen-Kompatibilität');
-    project.AddTopic('8.7.  Verwendung der eingebauten Funktionen');
-    project.AddTopic('8.8.  Überlegungen zum Geltungsbereich');
-    project.AddTopic('8.9.  Operator-Überladung und Generics');
-    project.AddTopic('9.  Erweiterte Record''s');
-    project.AddTopic('9.1.  Definition');
-    project.AddTopic('9.2.  Erweiterte Record-Aufzähler');
-    project.AddTopic('9.3.  Record-Operationen');
-    project.AddTopic('10.  Klassen, Record''s, und Typen-Helfer');
-    project.AddTopic('10.1.  Definition');
-    project.AddTopic('10.2.  Einschränkungen bei Klassen Helfer');
-    project.AddTopic('10.3.  Einschränkungen bei Record  Helfer');
-    project.AddTopic('10.4.  Überlegungen zu einfachen Helper');
-    project.AddTopic('10.5.  Anmerkungen zu Umfang und Lebensdauer von Record-Helper');
-    project.AddTopic('10.6.  Vererbung');
-    project.AddTopic('10.7.  Verwendung');
-    project.AddTopic('11.  Objektorientierte Pascal - Klassen');
-    project.AddTopic('11.1.  Einführung');
-    project.AddTopic('11.2.  Klassendeklarationen');
-    project.AddTopic('11.3.  Formele Deklaration');
-    project.AddTopic('11.4.  Instanzen zuteilen und zuordnen');
-    project.AddTopic('11.5.  Protokolldefinitionen');
-    project.AddTopic('11.6.  Kategorien');
-    project.AddTopic('11.7.  Namensumfang und Bezeichner');
-    project.AddTopic('11.8.  Selektoren');
-    project.AddTopic('11.9.  Der ID Typ');
-    project.AddTopic('11.10. Aufzählungen in Objective-C Klassen');
-    project.AddTopic('12.  Ausdrücke');
-    project.AddTopic('12.1.  Ausdrucks - Syntax');
-    project.AddTopic('12.2.  Funktionsaufrufe');
-    project.AddTopic('12.3.  Mengen - CTOR');
-    project.AddTopic('12.4.  Typ-Casting von Werten');
-    project.AddTopic('12.5.  Typ-Casting von Variablen');
-    project.AddTopic('12.6.  Sonstige Typ-Casting''s');
-    project.AddTopic('12.7.  Der @ - Operator');
-    project.AddTopic('12.8.  Operatoren');
-    project.AddTopic('12.8.1.  Arithmetische Operatoren');
-    project.AddTopic('12.8.2.  Logische Operatoren');
-    project.AddTopic('12.8.3.  Boolesche Operatoren');
-    project.AddTopic('12.8.4.  Zeichenketten Operatoren');
-    project.AddTopic('12.8.5.  Operatoren bei dynamischen Array''s');
-    project.AddTopic('12.8.6.  Mengen - Operatoren');
-    project.AddTopic('12.8.7.  Relationale Operatoren');
-    project.AddTopic('12.8.8.  Klassen - Operatoren');
-    project.AddTopic('13.  Anweisungen');
-    project.AddTopic('13.1.  Einfache Anweisungen');
-    project.AddTopic('13.1.1.  Zuweisungen');
-    project.AddTopic('13.1.2.  Prozeduren - PROCEDURE');
-    project.AddTopic('13.1.3.  Sprungs - Anweisung GOTO');
-    project.AddTopic('13.2.  Strukturierte Anweisungen');
-    project.AddTopic('13.2.1.  Zusammengesetzte Anweisungen');
-    project.AddTopic('13.2.2.  CASE');
-    project.AddTopic('13.2.3.  IF ... THEN');
-    project.AddTopic('13.2.4.  FOR ... TO / DOWNTO ... DO');
-    project.AddTopic('13.2.5.  FOR .. IN .. DO');
-    project.AddTopic('13.2.6.  REPEAT ... UNTIL');
-    project.AddTopic('13.2.7.  WHILE ... DO');
-    project.AddTopic('13.2.8.  WITH');
-    project.AddTopic('13.2.9.  Ausnahmen (EXCEPT)');
-    project.AddTopic('13.3.  Assembler Anweisungen');
-    project.AddTopic('14.  Benutzung von Funktionen und Prozeduren');
-    project.AddTopic('14.1.  FUNCTION Deklarationen');
-    project.AddTopic('14.2.  PROCEDURE Deklarationen');
-    project.AddTopic('14.3.  Funktion Rückgabewert mittels RESULT');
-    project.AddTopic('14.4.  Parameter Listen');
-    project.AddTopic('14.4.1.  Werte');
-    project.AddTopic('14.4.2.  Variablen');
-    project.AddTopic('14.4.3.  Ausgabe Parameter');
-    project.AddTopic('14.4.4.  Konstante Parameter');
-    project.AddTopic('14.4.5.  Offene Array''s');
-    project.AddTopic('14.4.6.  Array of Const');
-    project.AddTopic('14.4.7.  Untypisierte Parameter');
-    project.AddTopic('14.4.8.  Verwaltete Typen und Referenzzähler');
-    project.AddTopic('14.5.  Überladung von Funktionen');
-    project.AddTopic('14.6.  Mit FORWARD deklarierte Funktionen');
-    project.AddTopic('14.7.  Externe Funktionen');
-    project.AddTopic('14.8.  Assembler Funktionen');
-    project.AddTopic('14.9.  Modifikatoren');
-    project.AddTopic('14.9.1.  alias');
-    project.AddTopic('14.9.2.  cdecl');
-    project.AddTopic('14.9.3.  cppdecl');
-    project.AddTopic('14.9.4.  export');
-    project.AddTopic('14.9.5.  hardfloat');
-    project.AddTopic('14.9.6.  inline');
-    project.AddTopic('14.9.7.  interrupt');
-    project.AddTopic('14.9.8.  iocheck');
-    project.AddTopic('14.9.9.  local');
-    project.AddTopic('14.9.10.  MS_ABI_Default');
-    project.AddTopic('14.9.11.  MS_ABI_CDecl');
-    project.AddTopic('14.9.12.  MWPascal');
-    project.AddTopic('14.9.13.  noreturn');
-    project.AddTopic('14.9.14.  nostackframe');
-    project.AddTopic('14.9.15.  overload');
-    project.AddTopic('14.9.16.  pascal');
-    project.AddTopic('14.9.17.  public');
-    project.AddTopic('14.9.18.  register');
-    project.AddTopic('14.9.19.  safecall');
-    project.AddTopic('14.9.20.  saveregisters');
-    project.AddTopic('14.9.21.  softfloat');
-    project.AddTopic('14.9.22.  stdcall');
-    project.AddTopic('14.9.23.  SYSV_ABI_Default');
-    project.AddTopic('14.9.24.  SYSV_ABI_CDecl');
-    project.AddTopic('14.9.25.  VectorCall');
-    project.AddTopic('14.9.26.  varargs');
-    project.AddTopic('14.9.27.  winapi');
-    project.AddTopic('14.10.  Nicht unterstützte Modifikatoren');
-    project.AddTopic('15.  Operatoren Überladung');
-    project.AddTopic('15.1.  Einleitung');
-    project.AddTopic('15.2.  Operatoren - Deklarationen');
-    project.AddTopic('15.3.  Operator - Zuweisung');
-    project.AddTopic('15.4.  Arithmetische Operatoren');
-    project.AddTopic('15.5.  Vergleichende Operatoren');
-    project.AddTopic('15.6.  In Operator');
-    project.AddTopic('15.7.  Logik Operatoren');
-    project.AddTopic('15.8.  Auf- und Ab-Zählungs Operatoren');
-    project.AddTopic('15.9.  Aufzählungs - Operator');
-    project.AddTopic('16.  Programme, Module und Blöcke');
-    project.AddTopic('16.1.  Programme');
-    project.AddTopic('16.2.  Module (Unit''s)');
-    project.AddTopic('16.3.  Namensräume');
-    project.AddTopic('16.4.  Abhängigkeiten von Modulen');
-    project.AddTopic('16.5.  Blöcke');
-    project.AddTopic('16.6.  Anwendungsbereiche (Scope)');
-    project.AddTopic('16.6.1.  Blöcke');
-    project.AddTopic('16.6.2.  Record''s');
-    project.AddTopic('16.6.3.  Klassen');
-    project.AddTopic('16.6.4.  Unit''s');
-    project.AddTopic('16.7.  Bibliotheken');
-    project.AddTopic('17.  Ausnahmen');
-    project.AddTopic('17.1.  Die RAISE Anweisung');
-    project.AddTopic('17.2.  Ausnahme-Behandlung und Verschachtelung');
-    project.AddTopic('18.  Assembler');
-    project.AddTopic('18.1.  Anweisungen');
-    project.AddTopic('18.2.  Prozeduren und Funktionen');
-    project.AddTopic('Anhang');
-    project.AddTopic('Syntax');
+    HelpNDoc_default.AddTopic('Lizenz - Bitte lesen !!!');
+    HelpNDoc_default.AddTopic('Überblich');
+    HelpNDoc_default.AddTopic('Inhalt');
+    HelpNDoc_default.AddTopic('Liste der Tabellen');
+    HelpNDoc_default.AddTopic('Über dieses Handbuch');
+    HelpNDoc_default.AddTopic('Bezeichnungen');
+    HelpNDoc_default.AddTopic('Syntax Diagramme');
+    HelpNDoc_default.AddTopic('Über die Sprache Pascal');
+    HelpNDoc_default.AddTopic('1.  Pascal Zeichen und Symbole');
+    HelpNDoc_default.AddTopic('1.1  Symbole');
+    HelpNDoc_default.AddTopic('1.2  Kommentare');
+    HelpNDoc_default.AddTopic('1.3  Reservierte Schlüsselwörter');
+    HelpNDoc_default.AddTopic('1.3.1.  Turbo Pascal');
+    HelpNDoc_default.AddTopic('1.3.2.  Object Pascal');
+    HelpNDoc_default.AddTopic('1.3.3.  Modifikationen');
+    HelpNDoc_default.AddTopic('1.4.  Kennzeichnungen');
+    HelpNDoc_default.AddTopic('1.5.  Hinweise und Direktiven');
+    HelpNDoc_default.AddTopic('1.6.  Zahlen');
+    HelpNDoc_default.AddTopic('1.7.  Bezeichner');
+    HelpNDoc_default.AddTopic('1.8.  Zeichenketten');
+    HelpNDoc_default.AddTopic('2.  Konstanten');
+    HelpNDoc_default.AddTopic('2.1.  Gewöhnliche Konstanten');
+    HelpNDoc_default.AddTopic('2.2.  Typisierte Konstanten');
+    HelpNDoc_default.AddTopic('2.3.  Resourcen Zeichenketten');
+    HelpNDoc_default.AddTopic('3.  Typen');
+    HelpNDoc_default.AddTopic('3.1.  Basistypen');
+    HelpNDoc_default.AddTopic('3.1.1.  Ordinale Typen');
+    HelpNDoc_default.AddTopic('3.1.2.  Ganze Zahlen (Integer)');
+    HelpNDoc_default.AddTopic('3.1.3.  Boolesche Typen');
+    HelpNDoc_default.AddTopic('3.1.4.  Aufzählungen');
+    HelpNDoc_default.AddTopic('3.1.5.  Untermengen');
+    HelpNDoc_default.AddTopic('3.1.6.  Zeichen');
+    HelpNDoc_default.AddTopic('3.2.  Zeichen-Typen');
+    HelpNDoc_default.AddTopic('3.2.1.  Char oder AnsiChar');
+    HelpNDoc_default.AddTopic('3.2.2.  WideChar');
+    HelpNDoc_default.AddTopic('3.2.3.  Sonstige');
+    HelpNDoc_default.AddTopic('3.2.4.  Einzel-Byte Zeichenketten');
+    HelpNDoc_default.AddTopic('3.2.4.1.  ShortString');
+    HelpNDoc_default.AddTopic('3.2.4.2.  AnsiString');
+    HelpNDoc_default.AddTopic('3.2.4.3.  Zeichen-Code Umwandlung');
+    HelpNDoc_default.AddTopic('3.2.4.4.  RawByteString');
+    HelpNDoc_default.AddTopic('3.2.4.5.  UTF8String');
+    HelpNDoc_default.AddTopic('3.2.5.  Multi-Byte Zeichenketten');
+    HelpNDoc_default.AddTopic('3.2.5.1.  UnicodeString');
+    HelpNDoc_default.AddTopic('3.2.5.2.  WideString');
+    HelpNDoc_default.AddTopic('3.2.6.  Konstante Zeichenketten');
+    HelpNDoc_default.AddTopic('3.2.7.  Nullterminierente Zeichenketten (PChar)');
+    HelpNDoc_default.AddTopic('3.2.8.  Zeichenketten-Größen');
+    HelpNDoc_default.AddTopic('3.3.  Strukturierte Typen');
+    HelpNDoc_default.AddTopic('3.3.1.  Gepackte Struktur-Typen');
+    HelpNDoc_default.AddTopic('3.3.2.  Array''s');
+    HelpNDoc_default.AddTopic('3.3.2.1.  Statische Array''s');
+    HelpNDoc_default.AddTopic('3.3.2.2.  Dynamische Array''s');
+    HelpNDoc_default.AddTopic('3.3.2.3:  Typen-Kompatibilität dynamischer Array''s');
+    HelpNDoc_default.AddTopic('3.3.2.4.  Constuctor dynamischer Array''s');
+    HelpNDoc_default.AddTopic('3.3.2.5.  Feldkonstanten-Ausdrücke dynamiscer Array''s');
+    HelpNDoc_default.AddTopic('3.3.2.6.  Packen und Entpacken eines Array''s');
+    HelpNDoc_default.AddTopic('3.3.3.  Record''s');
+    HelpNDoc_default.AddTopic('3.3.3.1.  Layout und Größe');
+    HelpNDoc_default.AddTopic('3.3.3.2.  Bemerkungen und Beispiele');
+    HelpNDoc_default.AddTopic('3.3.4.  Mengen-Typen');
+    HelpNDoc_default.AddTopic('3.3.5.  Datei-Typen');
+    HelpNDoc_default.AddTopic('3.4.  Zeiger');
+    HelpNDoc_default.AddTopic('3.5.  Forward-Deklarationen');
+    HelpNDoc_default.AddTopic('3.6.  Prozedur-Typen');
+    HelpNDoc_default.AddTopic('3.7.  Variant''s');
+    HelpNDoc_default.AddTopic('3.7.1.  Definition');
+    HelpNDoc_default.AddTopic('3.7.2.  Variant''s in Zuweisungen und Ausdrücken');
+    HelpNDoc_default.AddTopic('3.7.3.  Variant''s im Interface-Teil');
+    HelpNDoc_default.AddTopic('3.8.  Alias-Typen');
+    HelpNDoc_default.AddTopic('3.9.  Verwaltete Typen');
+    HelpNDoc_default.AddTopic('4.  Variablen');
+    HelpNDoc_default.AddTopic('4.1.  Definition');
+    HelpNDoc_default.AddTopic('4.2.  Erklärung');
+    HelpNDoc_default.AddTopic('4.3.  Geltungssbereich');
+    HelpNDoc_default.AddTopic('4.4.  Initialisierte Variablen');
+    HelpNDoc_default.AddTopic('4.5.  Initialisierte Variablen mit Standard-Wert');
+    HelpNDoc_default.AddTopic('4.6.  Thread-Variablen');
+    HelpNDoc_default.AddTopic('4.7.  Eigenschaften');
+    HelpNDoc_default.AddTopic('5.  Objekte');
+    HelpNDoc_default.AddTopic('5.1.  Deklaration');
+    HelpNDoc_default.AddTopic('5.2.  Abtrakte und Sealed Objekte');
+    HelpNDoc_default.AddTopic('5.3.  Felder');
+    HelpNDoc_default.AddTopic('5.4.  Klassen oder statische Felder');
+    HelpNDoc_default.AddTopic('5.5.  Constructor und Destructor');
+    HelpNDoc_default.AddTopic('5.6.  Methoden');
+    HelpNDoc_default.AddTopic('5.6.1.  Erklärung');
+    HelpNDoc_default.AddTopic('5.6.2.  Methoden-Aufruf');
+    HelpNDoc_default.AddTopic('5.6.2.1.  Statische Methoden');
+    HelpNDoc_default.AddTopic('5.6.2.2.  Virtuelle Methoden');
+    HelpNDoc_default.AddTopic('5.6.2.3.  Abstrakte Methoden');
+    HelpNDoc_default.AddTopic('5.6.2.4.  Klassen-Methoden oder statische Methoden');
+    HelpNDoc_default.AddTopic('5.7.  Sichtbarkeit');
+    HelpNDoc_default.AddTopic('6.  Klassen');
+    HelpNDoc_default.AddTopic('6.1.  Klassen-Definitionen');
+    HelpNDoc_default.AddTopic('6.2.  Abstrakte und Sealed Klassen');
+    HelpNDoc_default.AddTopic('6.3.  Normale und statische Felder');
+    HelpNDoc_default.AddTopic('6.3.1.  Normalisierte Felder / Variablen');
+    HelpNDoc_default.AddTopic('6.3.2.  Klassen-Felder / Variablen');
+    HelpNDoc_default.AddTopic('6.4.  Klassen - CTOR (constructor)');
+    HelpNDoc_default.AddTopic('6.5.  Klassen - DTOR (destructor)');
+    HelpNDoc_default.AddTopic('6.6.  Methoden');
+    HelpNDoc_default.AddTopic('6.6.1.  Erklärung');
+    HelpNDoc_default.AddTopic('6.6.2.  Aufrufen');
+    HelpNDoc_default.AddTopic('6.6.3.  Virtuelle Methoden');
+    HelpNDoc_default.AddTopic('6.6.4.  Klassen - Methoden');
+    HelpNDoc_default.AddTopic('6.6.5.  Klassen CTOR und DTOR');
+    HelpNDoc_default.AddTopic('6.6.6.  Statische Klassen - Methoden');
+    HelpNDoc_default.AddTopic('6.6.7.  Nachrichten - Methoden');
+    HelpNDoc_default.AddTopic('6.6.8.  Vererbung');
+    HelpNDoc_default.AddTopic('6.7.  Eigenschaften');
+    HelpNDoc_default.AddTopic('6.7.1.  Definition');
+    HelpNDoc_default.AddTopic('6.7.2.  Indezierte Eigenschaften');
+    HelpNDoc_default.AddTopic('6.7.3.  Array basierte Eigenschaften');
+    HelpNDoc_default.AddTopic('6.7.4.  Standard - Eigenschaften (public)');
+    HelpNDoc_default.AddTopic('6.7.5.  Veröffentlichte - Eigenschaften (published)');
+    HelpNDoc_default.AddTopic('6.7.6.  Speicherinformationen');
+    HelpNDoc_default.AddTopic('6.7.7.  Eigenschaften überschreiben und neu deklarieren');
+    HelpNDoc_default.AddTopic('6.8.  Klassen - Eigenschaften');
+    HelpNDoc_default.AddTopic('6.9.  Verschachtelte Typen, Konstanten, und Variablen');
+    HelpNDoc_default.AddTopic('7.  Schnittstellen (Interface''s)');
+    HelpNDoc_default.AddTopic('7.1.  Definition');
+    HelpNDoc_default.AddTopic('7.2.  Identifikation');
+    HelpNDoc_default.AddTopic('7.3.  Implementierung');
+    HelpNDoc_default.AddTopic('7.4.  Vererbung');
+    HelpNDoc_default.AddTopic('7.5.  Delegation');
+    HelpNDoc_default.AddTopic('7.6.  COM');
+    HelpNDoc_default.AddTopic('7.7.  CORBA und andere Schnittstellen');
+    HelpNDoc_default.AddTopic('7.8.  Referenzzählung');
+    HelpNDoc_default.AddTopic('8.  Generics');
+    HelpNDoc_default.AddTopic('8.1.  Einführung');
+    HelpNDoc_default.AddTopic('8.2.  Get''ter Typ - Definition');
+    HelpNDoc_default.AddTopic('8.3.  Typen - Spezialisierung');
+    HelpNDoc_default.AddTopic('8.4.  Einschränkungen');
+    HelpNDoc_default.AddTopic('8.5.  Kompatibilität zu Delphi');
+    HelpNDoc_default.AddTopic('8.5.1.  Syntax - Elemente');
+    HelpNDoc_default.AddTopic('8.5.2.  Einschränkungen für Record''s');
+    HelpNDoc_default.AddTopic('8.5.3.  Typen - Überladung(en)');
+    HelpNDoc_default.AddTopic('8.5.4.  Überlegungen für Namensbereiche');
+    HelpNDoc_default.AddTopic('8.6.  Typen-Kompatibilität');
+    HelpNDoc_default.AddTopic('8.7.  Verwendung der eingebauten Funktionen');
+    HelpNDoc_default.AddTopic('8.8.  Überlegungen zum Geltungsbereich');
+    HelpNDoc_default.AddTopic('8.9.  Operator-Überladung und Generics');
+    HelpNDoc_default.AddTopic('9.  Erweiterte Record''s');
+    HelpNDoc_default.AddTopic('9.1.  Definition');
+    HelpNDoc_default.AddTopic('9.2.  Erweiterte Record-Aufzähler');
+    HelpNDoc_default.AddTopic('9.3.  Record-Operationen');
+    HelpNDoc_default.AddTopic('10.  Klassen, Record''s, und Typen-Helfer');
+    HelpNDoc_default.AddTopic('10.1.  Definition');
+    HelpNDoc_default.AddTopic('10.2.  Einschränkungen bei Klassen Helfer');
+    HelpNDoc_default.AddTopic('10.3.  Einschränkungen bei Record  Helfer');
+    HelpNDoc_default.AddTopic('10.4.  Überlegungen zu einfachen Helper');
+    HelpNDoc_default.AddTopic('10.5.  Anmerkungen zu Umfang und Lebensdauer von Record-Helper');
+    HelpNDoc_default.AddTopic('10.6.  Vererbung');
+    HelpNDoc_default.AddTopic('10.7.  Verwendung');
+    HelpNDoc_default.AddTopic('11.  Objektorientierte Pascal - Klassen');
+    HelpNDoc_default.AddTopic('11.1.  Einführung');
+    HelpNDoc_default.AddTopic('11.2.  Klassendeklarationen');
+    HelpNDoc_default.AddTopic('11.3.  Formele Deklaration');
+    HelpNDoc_default.AddTopic('11.4.  Instanzen zuteilen und zuordnen');
+    HelpNDoc_default.AddTopic('11.5.  Protokolldefinitionen');
+    HelpNDoc_default.AddTopic('11.6.  Kategorien');
+    HelpNDoc_default.AddTopic('11.7.  Namensumfang und Bezeichner');
+    HelpNDoc_default.AddTopic('11.8.  Selektoren');
+    HelpNDoc_default.AddTopic('11.9.  Der ID Typ');
+    HelpNDoc_default.AddTopic('11.10. Aufzählungen in Objective-C Klassen');
+    HelpNDoc_default.AddTopic('12.  Ausdrücke');
+    HelpNDoc_default.AddTopic('12.1.  Ausdrucks - Syntax');
+    HelpNDoc_default.AddTopic('12.2.  Funktionsaufrufe');
+    HelpNDoc_default.AddTopic('12.3.  Mengen - CTOR');
+    HelpNDoc_default.AddTopic('12.4.  Typ-Casting von Werten');
+    HelpNDoc_default.AddTopic('12.5.  Typ-Casting von Variablen');
+    HelpNDoc_default.AddTopic('12.6.  Sonstige Typ-Casting''s');
+    HelpNDoc_default.AddTopic('12.7.  Der @ - Operator');
+    HelpNDoc_default.AddTopic('12.8.  Operatoren');
+    HelpNDoc_default.AddTopic('12.8.1.  Arithmetische Operatoren');
+    HelpNDoc_default.AddTopic('12.8.2.  Logische Operatoren');
+    HelpNDoc_default.AddTopic('12.8.3.  Boolesche Operatoren');
+    HelpNDoc_default.AddTopic('12.8.4.  Zeichenketten Operatoren');
+    HelpNDoc_default.AddTopic('12.8.5.  Operatoren bei dynamischen Array''s');
+    HelpNDoc_default.AddTopic('12.8.6.  Mengen - Operatoren');
+    HelpNDoc_default.AddTopic('12.8.7.  Relationale Operatoren');
+    HelpNDoc_default.AddTopic('12.8.8.  Klassen - Operatoren');
+    HelpNDoc_default.AddTopic('13.  Anweisungen');
+    HelpNDoc_default.AddTopic('13.1.  Einfache Anweisungen');
+    HelpNDoc_default.AddTopic('13.1.1.  Zuweisungen');
+    HelpNDoc_default.AddTopic('13.1.2.  Prozeduren - PROCEDURE');
+    HelpNDoc_default.AddTopic('13.1.3.  Sprungs - Anweisung GOTO');
+    HelpNDoc_default.AddTopic('13.2.  Strukturierte Anweisungen');
+    HelpNDoc_default.AddTopic('13.2.1.  Zusammengesetzte Anweisungen');
+    HelpNDoc_default.AddTopic('13.2.2.  CASE');
+    HelpNDoc_default.AddTopic('13.2.3.  IF ... THEN');
+    HelpNDoc_default.AddTopic('13.2.4.  FOR ... TO / DOWNTO ... DO');
+    HelpNDoc_default.AddTopic('13.2.5.  FOR .. IN .. DO');
+    HelpNDoc_default.AddTopic('13.2.6.  REPEAT ... UNTIL');
+    HelpNDoc_default.AddTopic('13.2.7.  WHILE ... DO');
+    HelpNDoc_default.AddTopic('13.2.8.  WITH');
+    HelpNDoc_default.AddTopic('13.2.9.  Ausnahmen (EXCEPT)');
+    HelpNDoc_default.AddTopic('13.3.  Assembler Anweisungen');
+    HelpNDoc_default.AddTopic('14.  Benutzung von Funktionen und Prozeduren');
+    HelpNDoc_default.AddTopic('14.1.  FUNCTION Deklarationen');
+    HelpNDoc_default.AddTopic('14.2.  PROCEDURE Deklarationen');
+    HelpNDoc_default.AddTopic('14.3.  Funktion Rückgabewert mittels RESULT');
+    HelpNDoc_default.AddTopic('14.4.  Parameter Listen');
+    HelpNDoc_default.AddTopic('14.4.1.  Werte');
+    HelpNDoc_default.AddTopic('14.4.2.  Variablen');
+    HelpNDoc_default.AddTopic('14.4.3.  Ausgabe Parameter');
+    HelpNDoc_default.AddTopic('14.4.4.  Konstante Parameter');
+    HelpNDoc_default.AddTopic('14.4.5.  Offene Array''s');
+    HelpNDoc_default.AddTopic('14.4.6.  Array of Const');
+    HelpNDoc_default.AddTopic('14.4.7.  Untypisierte Parameter');
+    HelpNDoc_default.AddTopic('14.4.8.  Verwaltete Typen und Referenzzähler');
+    HelpNDoc_default.AddTopic('14.5.  Überladung von Funktionen');
+    HelpNDoc_default.AddTopic('14.6.  Mit FORWARD deklarierte Funktionen');
+    HelpNDoc_default.AddTopic('14.7.  Externe Funktionen');
+    HelpNDoc_default.AddTopic('14.8.  Assembler Funktionen');
+    HelpNDoc_default.AddTopic('14.9.  Modifikatoren');
+    HelpNDoc_default.AddTopic('14.9.1.  alias');
+    HelpNDoc_default.AddTopic('14.9.2.  cdecl');
+    HelpNDoc_default.AddTopic('14.9.3.  cppdecl');
+    HelpNDoc_default.AddTopic('14.9.4.  export');
+    HelpNDoc_default.AddTopic('14.9.5.  hardfloat');
+    HelpNDoc_default.AddTopic('14.9.6.  inline');
+    HelpNDoc_default.AddTopic('14.9.7.  interrupt');
+    HelpNDoc_default.AddTopic('14.9.8.  iocheck');
+    HelpNDoc_default.AddTopic('14.9.9.  local');
+    HelpNDoc_default.AddTopic('14.9.10.  MS_ABI_Default');
+    HelpNDoc_default.AddTopic('14.9.11.  MS_ABI_CDecl');
+    HelpNDoc_default.AddTopic('14.9.12.  MWPascal');
+    HelpNDoc_default.AddTopic('14.9.13.  noreturn');
+    HelpNDoc_default.AddTopic('14.9.14.  nostackframe');
+    HelpNDoc_default.AddTopic('14.9.15.  overload');
+    HelpNDoc_default.AddTopic('14.9.16.  pascal');
+    HelpNDoc_default.AddTopic('14.9.17.  public');
+    HelpNDoc_default.AddTopic('14.9.18.  register');
+    HelpNDoc_default.AddTopic('14.9.19.  safecall');
+    HelpNDoc_default.AddTopic('14.9.20.  saveregisters');
+    HelpNDoc_default.AddTopic('14.9.21.  softfloat');
+    HelpNDoc_default.AddTopic('14.9.22.  stdcall');
+    HelpNDoc_default.AddTopic('14.9.23.  SYSV_ABI_Default');
+    HelpNDoc_default.AddTopic('14.9.24.  SYSV_ABI_CDecl');
+    HelpNDoc_default.AddTopic('14.9.25.  VectorCall');
+    HelpNDoc_default.AddTopic('14.9.26.  varargs');
+    HelpNDoc_default.AddTopic('14.9.27.  winapi');
+    HelpNDoc_default.AddTopic('14.10.  Nicht unterstützte Modifikatoren');
+    HelpNDoc_default.AddTopic('15.  Operatoren Überladung');
+    HelpNDoc_default.AddTopic('15.1.  Einleitung');
+    HelpNDoc_default.AddTopic('15.2.  Operatoren - Deklarationen');
+    HelpNDoc_default.AddTopic('15.3.  Operator - Zuweisung');
+    HelpNDoc_default.AddTopic('15.4.  Arithmetische Operatoren');
+    HelpNDoc_default.AddTopic('15.5.  Vergleichende Operatoren');
+    HelpNDoc_default.AddTopic('15.6.  In Operator');
+    HelpNDoc_default.AddTopic('15.7.  Logik Operatoren');
+    HelpNDoc_default.AddTopic('15.8.  Auf- und Ab-Zählungs Operatoren');
+    HelpNDoc_default.AddTopic('15.9.  Aufzählungs - Operator');
+    HelpNDoc_default.AddTopic('16.  Programme, Module und Blöcke');
+    HelpNDoc_default.AddTopic('16.1.  Programme');
+    HelpNDoc_default.AddTopic('16.2.  Module (Unit''s)');
+    HelpNDoc_default.AddTopic('16.3.  Namensräume');
+    HelpNDoc_default.AddTopic('16.4.  Abhängigkeiten von Modulen');
+    HelpNDoc_default.AddTopic('16.5.  Blöcke');
+    HelpNDoc_default.AddTopic('16.6.  Anwendungsbereiche (Scope)');
+    HelpNDoc_default.AddTopic('16.6.1.  Blöcke');
+    HelpNDoc_default.AddTopic('16.6.2.  Record''s');
+    HelpNDoc_default.AddTopic('16.6.3.  Klassen');
+    HelpNDoc_default.AddTopic('16.6.4.  Unit''s');
+    HelpNDoc_default.AddTopic('16.7.  Bibliotheken');
+    HelpNDoc_default.AddTopic('17.  Ausnahmen');
+    HelpNDoc_default.AddTopic('17.1.  Die RAISE Anweisung');
+    HelpNDoc_default.AddTopic('17.2.  Ausnahme-Behandlung und Verschachtelung');
+    HelpNDoc_default.AddTopic('18.  Assembler');
+    HelpNDoc_default.AddTopic('18.1.  Anweisungen');
+    HelpNDoc_default.AddTopic('18.2.  Prozeduren und Funktionen');
+    HelpNDoc_default.AddTopic('Anhang');
+    HelpNDoc_default.AddTopic('Syntax');
 
   finally
     print('3.  clean up memory...');
-    PRO_default.Free;
-    PRO_default := nil;
+    
+    HelpNDoc_default.Free;
+    HelpNDoc_default := nil;
+    
     print('4.  done.');
   end;
 end;
