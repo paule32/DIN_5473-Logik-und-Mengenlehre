@@ -306,6 +306,7 @@ begin
   TopicLevel  := ALevel;
   TopicID     := HndTopics.CreateTopic;
   
+  HndTopics.SetCurrentTopic(TopicID);
   HndTopics.SetTopicCaption(TopicID, TopicTitle);
   MoveRight;
   
@@ -325,6 +326,7 @@ begin
   TopicLevel  := GetLevel(TopicTitle);
   TopicID     := HndTopics.CreateTopic;
   
+  HndTopics.SetCurrentTopic(TopicID);
   HndTopics.SetTopicCaption(TopicID, TopicTitle);
   MoveRight;
   
@@ -367,6 +369,7 @@ begin
     try
       strList := TStringList.Create;
       strList.LoadFromFile(AFileName);
+      
       getEditor.setContent(Trim(strList.Text));
     except
       on E: Exception do
@@ -495,6 +498,8 @@ var
 begin
   try
     Topic  := TTopic.Create(AName, GetLevel(AName));
+    Topic.LoadFromFile(HelpNDocTemplateHTM);
+    
     HndEditor.SetAsTopicContent(Topic.getEditor.getID, Topic.getID);
     Topics := Topics + [Topic];
   except
@@ -548,7 +553,9 @@ begin
   HelpNDoc_[::HelpNDocProjectPRO::] := TProject.Create('[::HelpNDocProjectPRO::]');
   try
     print('1. pre-processing data...');
-    HelpNDoc_[::HelpNDocProjectPRO::].SetTemplate(HelpNDocTemplateHTM);
+    HelpNDoc_[::HelpNDocProjectPRO::].SetTemplate(
+      HelpNDocProjectPath + '\' +
+      HelpNDocTemplateHTM);
 """)
         # -----------------------------------------------------------------------
         for idx, t in enumerate(hhc_topics):

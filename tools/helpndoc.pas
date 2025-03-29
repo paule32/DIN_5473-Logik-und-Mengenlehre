@@ -244,6 +244,7 @@ begin
   TopicLevel  := ALevel;
   TopicID     := HndTopics.CreateTopic;
   
+  HndTopics.SetCurrentTopic(TopicID);
   HndTopics.SetTopicCaption(TopicID, TopicTitle);
   MoveRight;
   
@@ -263,6 +264,7 @@ begin
   TopicLevel  := GetLevel(TopicTitle);
   TopicID     := HndTopics.CreateTopic;
   
+  HndTopics.SetCurrentTopic(TopicID);
   HndTopics.SetTopicCaption(TopicID, TopicTitle);
   MoveRight;
   
@@ -287,9 +289,9 @@ end;
 procedure TTopic.MoveRight;
 var idx: Integer;
 begin
-  if TopicLevel > 1 then
+  if TopicLevel >= 0 then
   begin
-    for idx := 1 to TopicLevel do
+    for idx := 0 to TopicLevel-1 do
     HndTopics.MoveTopicRight(TopicID);
   end;
 end;
@@ -305,6 +307,7 @@ begin
     try
       strList := TStringList.Create;
       strList.LoadFromFile(AFileName);
+      
       getEditor.setContent(Trim(strList.Text));
     except
       on E: Exception do
@@ -379,7 +382,7 @@ var index: Integer;
 begin
   CleanUp;
   
-  HndProjects.CloseProject;
+  //HndProjects.CloseProject;
   inherited Destroy;
 end;
 
@@ -433,6 +436,8 @@ var
 begin
   try
     Topic  := TTopic.Create(AName, GetLevel(AName));
+    Topic.LoadFromFile(HelpNDocTemplateHTM);
+    
     HndEditor.SetAsTopicContent(Topic.getEditor.getID, Topic.getID);
     Topics := Topics + [Topic];
   except
