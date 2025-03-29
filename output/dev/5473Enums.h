@@ -5,10 +5,13 @@
 #define __5473Enums_HEADER__
 
 enum {
-  HELP_Vorlage = 4,
   HELP_Lizenz-Bittelesen = 2,
-  HELP_Inhalt = 3,
-  HELP_ListederTabellen = 6
+  HELP_Uberblick = 0,
+  HELP_1FestlegungdesbegrifflichenRahme = 1,
+  HELP_11Individuen = 7,
+  HELP_12KlassenundMengen = 8,
+  HELP_13RelationenundFunktionen = 5,
+  HELP_14Objekt-SpracheundMeta-Sprache = 9
 };
 
 #endif

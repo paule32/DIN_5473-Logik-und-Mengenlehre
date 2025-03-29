@@ -4,9 +4,12 @@
 #ifndef __5473Defines_HEADER__
 #define __5473Defines_HEADER__
 
-#define HELP_Vorlage 4
 #define HELP_Lizenz-Bittelesen 2
-#define HELP_Inhalt 3
-#define HELP_ListederTabellen 6
+#define HELP_Uberblick 0
+#define HELP_1FestlegungdesbegrifflichenRahme 1
+#define HELP_11Individuen 7
+#define HELP_12KlassenundMengen 8
+#define HELP_13RelationenundFunktionen 5
+#define HELP_14Objekt-SpracheundMeta-Sprache 9
 
 #endif

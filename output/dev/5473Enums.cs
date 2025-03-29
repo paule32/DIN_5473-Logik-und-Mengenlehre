@@ -3,8 +3,11 @@
 
 public enum Help_5473Enums
 {
-    Vorlage = 4,
     Lizenz-Bittelesen = 2,
-    Inhalt = 3,
-    ListederTabellen = 6,
+    Uberblick = 0,
+    1FestlegungdesbegrifflichenRahme = 1,
+    11Individuen = 7,
+    12KlassenundMengen = 8,
+    13RelationenundFunktionen = 5,
+    14Objekt-SpracheundMeta-Sprache = 9,
 }

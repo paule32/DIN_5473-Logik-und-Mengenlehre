@@ -4,9 +4,12 @@
 #ifndef __5473_HEADER__
 #define __5473_HEADER__
 
-const int HELP_Vorlage = 4; 				 // Topic: "Vorlage"
 const int HELP_Lizenz-Bittelesen = 2; 				 // Topic: "Lizenz - Bitte lesen !!!"
-const int HELP_Inhalt = 3; 				 // Topic: "Inhalt"
-const int HELP_ListederTabellen = 6; 				 // Topic: "Liste der Tabellen"
+const int HELP_Uberblick = 0; 				 // Topic: "Überblick"
+const int HELP_1FestlegungdesbegrifflichenRahme = 1; 				 // Topic: "1. Festlegung des begrifflichen Rahmens"
+const int HELP_11Individuen = 7; 				 // Topic: "1.1. Individuen"
+const int HELP_12KlassenundMengen = 8; 				 // Topic: "1.2. Klassen und Mengen"
+const int HELP_13RelationenundFunktionen = 5; 				 // Topic: "1.3. Relationen und Funktionen"
+const int HELP_14Objekt-SpracheundMeta-Sprache = 9; 				 // Topic: "1.4. Objekt-Sprache und Meta-Sprache"
 
 #endif
