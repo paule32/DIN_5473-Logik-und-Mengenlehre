@@ -7,11 +7,35 @@
 enum {
   HELP_Lizenz-Bittelesen = 2,
   HELP_Uberblick = 0,
+  HELP_Inhalt = 3,
   HELP_1FestlegungdesbegrifflichenRahme = 1,
   HELP_11Individuen = 7,
   HELP_12KlassenundMengen = 8,
   HELP_13RelationenundFunktionen = 5,
-  HELP_14Objekt-SpracheundMeta-Sprache = 9
+  HELP_14Objekt-SpracheundMeta-Sprache = 9,
+  HELP_15Variablen = 10,
+  HELP_16Konstanten = 11,
+  HELP_17Formeln = 12,
+  HELP_18Terme = 13,
+  HELP_2Logik = 14,
+  HELP_21Junktoren = 20,
+  HELP_22Quantoren = 21,
+  HELP_23Kennzeichnungs-Operator = 22,
+  HELP_24Modaloperatoren = 33,
+  HELP_25MetatheoretischeOperatoren = 34,
+  HELP_3KlassenundMengen = 15,
+  HELP_4Standard-Zahlen-Mengen = 16,
+  HELP_5Relationen = 17,
+  HELP_6Funktionen = 18,
+  HELP_7Strukturen = 19,
+  HELP_8Kardinalzahlen = 35,
+  HELP_Anhang = 23,
+  HELP_MIT-Lizenz-Deutsch = 24,
+  HELP_MIT-Lizenz-Englisch = 25,
+  HELP_MIT-Lizenz-Franzosisch = 26,
+  HELP_MIT-Lizenz-Spanisch = 27,
+  HELP_MIT-Lizenz-Polinsch = 28,
+  HELP_MIT-Lizenz-Russisch = 30
 };
 
 #endif
